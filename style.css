@@ -246,9 +246,14 @@ html.is-locked {
   height: calc(var(--scroll, 0) * 1px + 100lvh);
 }
 
+/* The wall is pinned to the window while the page scrolls underneath it. It is fixed rather
+   than sticky: Safari sometimes lost track of a sticky wall while the walk moved the page,
+   and for a moment drew only part of it, or none, which flickered black. */
 .stage {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   height: 100vh;
   height: 100svh;
   overflow: hidden;
