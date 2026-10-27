@@ -7,7 +7,7 @@
   var root = document.documentElement;
   var $ = function (id) { return document.getElementById(id); };
 
-  if (!(window.CSS && CSS.supports && CSS.supports('position', 'sticky') && window.requestAnimationFrame && $('gallery-data'))) {
+  if (!(window.CSS && CSS.supports && window.requestAnimationFrame && $('gallery-data'))) {
     fallback();
     return;
   }
@@ -228,7 +228,6 @@
       L.safeTop = measureSafeTop();
       closeup.classList.toggle('is-stacked', L.stacked);
 
-      walk.style.setProperty('--scroll', Math.ceil(total * ratio));
       floorEl.style.left = Math.round(-vw * 3) + 'px';
       floorEl.style.width = Math.round(endX + vw * 6) + 'px';
       floorEl.style.top = floorY + 'px';
@@ -299,6 +298,13 @@
     var shownStop = -1;
     var glide = null;     // a gentle, timed move of the target (landing, arrow keys, dots)
     var ownY = -1;        // the scroll position we set ourselves, so we don't mistake it for the visitor
+
+    /* The walk's own scroll position. The page itself never scrolls: while it scrolled under the
+       wall, Safari sometimes lost part of the wall for a moment, which flickered black. The wheel,
+       the trackpad, the keys and your finger move this number instead, and the walk follows it
+       just as it used to follow the page. */
+    var sy = 0;
+    function setY(y) { sy = clamp(Math.round(y), 0, Math.ceil(L.total * L.ratio)); }
 
     var cu = { open: false, i: -1, p: 0, anim: null, nav: null, cam: null, aim: null, returnY: 0, wheel: 0, wheelX: 0 };
     var textTimer = 0;
@@ -520,24 +526,10 @@
 
     /* ---------------------------------------------------------------- walking */
 
-    /* After a close-up closes, some browsers (Safari) put the scroll position back to where it
-       was when the close-up opened. For a moment, hold the wall at the painting you were
-       actually looking at, and undo any scroll the browser restores. */
-    var holdY = -1, holdTimer = 0;
-    function holdScroll(y) {
-      holdY = y;
-      window.scrollTo(0, y);
-      clearTimeout(holdTimer);
-      holdTimer = setTimeout(function () { holdY = -1; }, 700);
-    }
-
+    /* The visitor scrolled (wheel, trackpad or keys moved sy): the walk follows. */
     function onScroll() {
       if (cu.open || overview.open) return;
-      if (holdY >= 0) {
-        if (Math.abs(window.scrollY - holdY) > 1) window.scrollTo(0, holdY);
-        return;
-      }
-      var y = window.scrollY;
+      var y = sy;
       if (ownY >= 0 && Math.abs(y - ownY) <= 1) { ownY = -1; return; } // our own glide, already on its way
       ownY = -1;
       glide = null; // the visitor is scrolling again: they lead
@@ -563,7 +555,7 @@
     function land() {
       if (touching || glide || cu.open || overview.open) return;
       gesture = false;
-      var x = clamp(window.scrollY / L.ratio, 0, L.total);
+      var x = clamp(sy / L.ratio, 0, L.total);
       var k = nearestStopIndex(x);
       var from = nearestStopIndex(gestureFrom);
       var nudge = x - L.stops[from].x;
@@ -612,7 +604,7 @@
         var dur = clamp(450 + (Math.abs(x - target) / L.slot) * 450, 500, 1000);
         glide = { from: target, to: x, t0: performance.now(), dur: dur };
       }
-      window.scrollTo(0, ownY);
+      setY(ownY);
       kick();
     }
 
@@ -624,7 +616,7 @@
         v = 0;
         glide = null;
         target = x;
-        window.scrollTo(0, Math.round(x * L.ratio));
+        setY(x * L.ratio);
         shownStop = nearestStopIndex(x);
         snapWall = true;
         render();
@@ -642,7 +634,7 @@
       stepping = true;
       veil.classList.add('is-down');
       setTimeout(function () {
-        var now = nearestStopIndex(clamp(window.scrollY / L.ratio, 0, L.total));
+        var now = nearestStopIndex(clamp(sy / L.ratio, 0, L.total));
         shownStop = now;
         glide = null; target = c = L.stops[now].x;
         snapWall = true;
@@ -650,7 +642,7 @@
         veil.classList.remove('is-down');
         setTimeout(function () {
           stepping = false;
-          stepToNearest(clamp(window.scrollY / L.ratio, 0, L.total));
+          stepToNearest(clamp(sy / L.ratio, 0, L.total));
         }, 230);
       }, 230);
     }
@@ -828,7 +820,7 @@
 
       cu.open = true;
       cu.i = i;
-      cu.returnY = window.scrollY;
+      cu.returnY = sy;
       cu.cam = closeCam(i);
       cu.nav = null;
       loadAround(i);
@@ -879,7 +871,7 @@
       glide = null; c = target = L.xs[j];
       v = 0;
       cu.returnY = Math.round(L.xs[j] * L.ratio);
-      window.scrollTo(0, cu.returnY);
+      setY(cu.returnY);
 
       history.replaceState(history.state, '', '#' + P[j].slug);
       say('“' + P[j].title + '”, ' + P[j].date);
@@ -909,7 +901,7 @@
       root.classList.remove('is-close');
       hideText();
       lockPage(false);
-      holdScroll(cu.returnY); // land at the painting you were looking at last, not the first one
+      setY(cu.returnY); // land at the painting you were looking at last, not the first one
       glide = null;
       target = clamp(cu.returnY / L.ratio, 0, L.total);
       if (Math.abs(target - c) > 1) c = target;
@@ -1107,7 +1099,7 @@
       firstMove();
       var here = nearestPainting(c);
       thumbs.forEach(function (t, i) { if (i === here) t.btn.setAttribute('aria-current', 'true'); else t.btn.removeAttribute('aria-current'); });
-      ovReturnY = window.scrollY;
+      ovReturnY = sy;
       root.classList.add('is-locked');
       overview.showModal();
       requestAnimationFrame(function () { overview.classList.add('is-open'); });
@@ -1125,7 +1117,7 @@
       setTimeout(function () {
         overview.close();
         root.classList.remove('is-locked');
-        window.scrollTo(0, ovReturnY);
+        setY(ovReturnY);
         if (then) then();
       }, reduced ? 120 : 380);
     }
@@ -1137,7 +1129,6 @@
 
     /* ---------------------------------------------------------------- input */
 
-    window.addEventListener('scroll', onScroll, { passive: true });
 
     var lastInput = 'pointer';
     window.addEventListener('keydown', function () { lastInput = 'key'; }, true);
@@ -1159,11 +1150,12 @@
       else if (k === 'ArrowLeft' || k === 'ArrowUp') { e.preventDefault(); step(-1); }
       else if (k === 'Home') { e.preventDefault(); walkTo(0); say('The start'); }
       else if (k === 'End') { e.preventDefault(); walkTo(L.total); say('The end of the wall'); }
-      else if (k === ' ' || k === 'PageDown' || k === 'PageUp') firstMove();
+      else if ((k === ' ' && !onButton) || k === 'PageDown') { e.preventDefault(); step(k === ' ' && e.shiftKey ? -1 : 1); }
+      else if (k === 'PageUp') { e.preventDefault(); step(-1); }
     });
 
-    /* Phones: drag the wall sideways and it follows your finger. When you let go it
-       carries on a little and lands on a painting. Scrolling up and down still works too. */
+    /* Phones: drag the wall and it follows your finger, sideways or up and down. When you let
+       go it carries on a little and lands on a painting. */
     var drag = null, dragEndedAt = 0;
     stage.addEventListener('touchstart', function (e) {
       if (e.touches.length !== 1 || cu.open || overview.open) { drag = null; return; }
@@ -1171,23 +1163,25 @@
     }, { passive: true });
     stage.addEventListener('touchmove', function (e) {
       if (!drag) return;
+      if (e.cancelable) e.preventDefault(); // the page never scrolls; the wall moves instead
       var p = e.touches[0];
       var dx = p.clientX - drag.x0, dy = p.clientY - drag.y0;
       if (!drag.on) {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        if (Math.abs(dx) <= Math.abs(dy)) { drag = null; return; } // up or down: the page scrolls as usual
         drag.on = true;
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; // up moves on, like scrolling down
         drag.x0 = p.clientX;
-        dx = 0;
+        drag.y0 = p.clientY;
+        dx = dy = 0;
         glide = null;
         drag.from = target = c; // catch the wall where it is
         v = 0;
         firstMove();
       }
-      if (e.cancelable) e.preventDefault();
-      drag.moved = dx;
+      var d = drag.axis === 'x' ? dx : dy;
+      drag.moved = d;
       if (reduced) return; // with reduced motion, a swipe steps to the next painting instead
-      target = c = clamp(drag.from - dx, 0, L.total);
+      target = c = clamp(drag.from - d, 0, L.total);
       var now = performance.now();
       drag.trail.push([now, target]);
       while (drag.trail.length > 2 && now - drag.trail[0][0] > 100) drag.trail.shift();
@@ -1217,13 +1211,15 @@
       if (performance.now() - dragEndedAt < 400) { e.stopPropagation(); e.preventDefault(); }
     }, true);
 
-    // laptops: a sideways two-finger swipe on the trackpad walks too
+    // the mouse wheel and the trackpad, up and down or sideways, walk along the wall
     window.addEventListener('wheel', function (e) {
-      if (cu.open || overview.open || e.ctrlKey) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.2) {
-        e.preventDefault();
-        window.scrollBy(0, e.deltaX);
-      }
+      if (cu.open || overview.open || e.ctrlKey) return; // (ctrl: pinch to zoom the page)
+      e.preventDefault();
+      var unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? L.vh : 1; // lines or pages, not pixels
+      var d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * unit;
+      if (!d) return;
+      setY(sy + d);
+      onScroll();
     }, { passive: false });
 
     // the stage never scrolls sideways on its own (focus can try)
@@ -1251,7 +1247,7 @@
         cu.nav = null;
         cu.returnY = Math.round(L.xs[cu.i] * L.ratio);
         placePanel();
-      } else window.scrollTo(0, Math.round(c * L.ratio));
+      } else setY(c * L.ratio);
       render();
     }
 
@@ -1263,11 +1259,6 @@
     }
 
     function syncFromHash() {
-      if (holdY >= 0) {
-        // the browser may restore an old scroll position around this moment: put it back
-        window.scrollTo(0, holdY);
-        requestAnimationFrame(function () { if (holdY >= 0) window.scrollTo(0, holdY); });
-      }
       var s = decodeURIComponent(location.hash.slice(1));
       var i = s ? slugIndex(s) : -1;
       if (i >= 0) {
@@ -1276,7 +1267,7 @@
         if (overview.open) { overview.classList.remove('is-open'); overview.close(); root.classList.remove('is-locked'); }
         glide = null; c = target = L.xs[i];
         v = 0;
-        window.scrollTo(0, Math.round(c * L.ratio));
+        setY(c * L.ratio);
         render();
         openCloseup(i, { fromHash: true });
       } else if (cu.open) closeCloseup({ fromHistory: true });
@@ -1300,12 +1291,12 @@
       root.classList.add('instant', 'lit', 'is-ready');
       moved = true;
       glide = null; c = target = L.xs[first];
-      window.scrollTo(0, Math.round(c * L.ratio));
+      setY(c * L.ratio);
       render();
       openCloseup(first, { fromHash: true, instant: true });
       requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('instant'); }); });
     } else {
-      window.scrollTo(0, 0);
+      setY(0);
       render();
       var begin = function () {
         if (root.classList.contains('lit')) return;
