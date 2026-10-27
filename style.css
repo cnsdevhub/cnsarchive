@@ -229,7 +229,11 @@ html:not(.js) .signoff {
    The walk
    ------------------------------------------------------------------ */
 
+/* The page itself never scrolls: the wheel, the trackpad, the keys and your finger move the
+   walk directly (gallery.js). While the page scrolled underneath the wall, Safari sometimes
+   lost part of the wall for a moment, which flickered black. */
 html.js {
+  overflow: hidden;
   scrollbar-width: none;
   overscroll-behavior: none;
 }
@@ -243,12 +247,10 @@ html.is-locked {
 .walk {
   position: relative;
   height: 100vh;
-  height: calc(var(--scroll, 0) * 1px + 100lvh);
+  height: 100svh;
 }
 
-/* The wall is pinned to the window while the page scrolls underneath it. It is fixed rather
-   than sticky: Safari sometimes lost track of a sticky wall while the walk moved the page,
-   and for a moment drew only part of it, or none, which flickered black. */
+/* The wall fills the window. */
 .stage {
   position: fixed;
   top: 0;
@@ -258,7 +260,7 @@ html.is-locked {
   height: 100svh;
   overflow: hidden;
   overflow: clip;
-  touch-action: pan-y;
+  touch-action: none;
   background: var(--ground);
   -webkit-user-select: none;
   user-select: none;
