@@ -1190,7 +1190,7 @@
     window.addEventListener('touchstart', function () { lastInput = 'pointer'; }, { capture: true, passive: true });
 
     document.addEventListener('keydown', function (e) {
-      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || overview.open) return;
+      if (!L.stops || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || overview.open) return;
       var k = e.key;
       var onButton = e.target && e.target.tagName === 'BUTTON';
       if (cu.open) {
@@ -1212,7 +1212,7 @@
        go it carries on a little and lands on a painting. */
     var drag = null, dragEndedAt = 0;
     stage.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1 || cu.open || overview.open) { drag = null; return; }
+      if (!L.stops || e.touches.length !== 1 || cu.open || overview.open) { drag = null; return; }
       drag = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, on: false, from: 0, moved: 0, trail: [] };
     }, { passive: true });
     stage.addEventListener('touchmove', function (e) {
@@ -1267,7 +1267,7 @@
 
     // the mouse wheel and the trackpad, up and down or sideways, walk along the wall
     window.addEventListener('wheel', function (e) {
-      if (cu.open || overview.open || e.ctrlKey) return; // (ctrl: pinch to zoom the page)
+      if (!L.stops || cu.open || overview.open || e.ctrlKey) return; // (ctrl: pinch to zoom the page)
       e.preventDefault();
       var unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? L.vh : 1; // lines or pages, not pixels
       var d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * unit;
@@ -1280,16 +1280,22 @@
     stage.addEventListener('scroll', function () { stage.scrollLeft = 0; stage.scrollTop = 0; });
 
     var resizeTimer = 0;
-    window.addEventListener('resize', function () {
+    function onResize() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () { relayout(); }, 140);
-    });
+    }
+    window.addEventListener('resize', onResize);
+    // in-app browsers (Instagram and others) can change the page's size without a resize event
+    if (window.ResizeObserver) new ResizeObserver(onResize).observe(stage);
 
     function relayout(force) {
+      if (!L.stops || !hasSize()) return; // not started yet, or no size to lay out in
       if (!force && stage.clientWidth === L.vw && Math.abs(stage.clientHeight - L.vh) < 1) return;
+      if (!isFinite(c)) c = 0;
       var k = nearestStopIndex(c);
       var stop = L.stops[k];
-      var off = (c - stop.x) / L.slot;
+      var off = L.slot > 0 ? (c - stop.x) / L.slot : 0;
+      if (!isFinite(off)) off = 0;
       var key = stop.kind + ':' + (stop.i !== undefined ? stop.i : stop.room !== undefined ? stop.room : '');
       layout();
       var match = L.stops.filter(function (s) { return s.kind + ':' + (s.i !== undefined ? s.i : s.room !== undefined ? s.room : '') === key; })[0] || L.stops[0];
@@ -1337,30 +1343,53 @@
     }
 
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    layout();
-    if (roomSigns.length && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { relayout(true); });
+    whenSized(boot);
 
-    var first = slugIndex(decodeURIComponent(location.hash.slice(1)));
-    if (first >= 0) {
-      root.classList.add('instant', 'lit', 'is-ready');
-      moved = true;
-      glide = null; c = target = L.xs[first];
-      setY(c * L.ratio);
-      render();
-      openCloseup(first, { fromHash: true, instant: true });
-      requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('instant'); }); });
-    } else {
-      setY(0);
-      render();
-      var begin = function () {
-        if (root.classList.contains('lit')) return;
-        root.classList.add('lit');
-        setTimeout(function () { root.classList.add('is-ready'); }, reduced ? 2600 : 5200);
+    /* In-app browsers (Instagram and others) can start the page while their window is still
+       opening and has no height yet. Laying the wall out then would put everything off screen,
+       so wait until the page has a real size. */
+    function hasSize() { return stage.clientWidth > 40 && stage.clientHeight > 40; }
+    function whenSized(fn) {
+      if (hasSize()) { fn(); return; }
+      var done = false, ro = null;
+      var check = function () {
+        if (done || !hasSize()) return;
+        done = true;
+        if (ro) ro.disconnect();
+        window.removeEventListener('resize', check);
+        fn();
       };
-      var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-      Promise.race([fontsReady, new Promise(function (r) { setTimeout(r, 900); })]).then(function () {
-        requestAnimationFrame(function () { requestAnimationFrame(begin); });
-      });
+      if (window.ResizeObserver) { ro = new ResizeObserver(check); ro.observe(stage); }
+      window.addEventListener('resize', check);
+      (function poll(n) { if (done) return; check(); if (!done && n < 400) setTimeout(function () { poll(n + 1); }, 50); })(0);
+    }
+
+    function boot() {
+      layout();
+      if (roomSigns.length && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { relayout(true); });
+
+      var first = slugIndex(decodeURIComponent(location.hash.slice(1)));
+      if (first >= 0) {
+        root.classList.add('instant', 'lit', 'is-ready');
+        moved = true;
+        glide = null; c = target = L.xs[first];
+        setY(c * L.ratio);
+        render();
+        openCloseup(first, { fromHash: true, instant: true });
+        requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('instant'); }); });
+      } else {
+        setY(0);
+        render();
+        var begin = function () {
+          if (root.classList.contains('lit')) return;
+          root.classList.add('lit');
+          setTimeout(function () { root.classList.add('is-ready'); }, reduced ? 2600 : 5200);
+        };
+        var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+        Promise.race([fontsReady, new Promise(function (r) { setTimeout(r, 900); })]).then(function () {
+          requestAnimationFrame(function () { requestAnimationFrame(begin); });
+        });
+      }
     }
   }
 
