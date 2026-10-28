@@ -55,6 +55,8 @@
     var webpLikely = CSS.supports('aspect-ratio', '1');
 
     var wallRGB = P.map(function (p) { return hexToRGB(p.wall || '#2b2a25'); });
+    var longSides = P.filter(function (p) { return p.cm; }).map(function (p) { return Math.max(p.cm[0], p.cm[1]); }).sort(function (a, b) { return a - b; });
+    var typicalCm = longSides.length ? longSides[Math.floor((longSides.length - 1) / 2)] : 30;
     var shownWall = wallRGB[0].slice();
     var snapWall = true;
 
@@ -163,8 +165,10 @@
       var vh = stage.clientHeight;
       var mobile = vw < 720;
       var slot = mobile ? vw * 0.98 : clamp(vw * 0.56, 560, 1000);
-      var ref = mobile ? vw * 0.62 : clamp(vw * 0.245, 270, 460); // shown width of a 30 cm side
-      var perCm = ref / 30;
+      // Paintings keep their real sizes relative to each other. A typical one of yours (the
+      // median long side) hangs at a comfortable size, and the others scale with it.
+      var ref = mobile ? vw * 0.62 : clamp(vw * 0.245, 270, 460); // shown long side of a typical painting
+      var perCm = ref / typicalCm;
       var floorY = Math.round(vh * (mobile ? 0.83 : 0.86));
       var eye = vh * (mobile ? 0.41 : 0.43);
       var labelRoom = 96;
@@ -709,7 +713,7 @@
       var w = L.finderW || finderLine.clientWidth;
       var hit = Math.min(30, w / n);
       finderLine.style.setProperty('--hit', hit.toFixed(1) + 'px');
-      finder.setAttribute('aria-label', 'Paintings in ' + rooms[r].name);
+      finder.setAttribute('aria-label', rooms[r].name ? 'Paintings in ' + rooms[r].name : 'Paintings');
       items.forEach(function (i, k) {
         var b = document.createElement('button');
         b.type = 'button';
@@ -997,7 +1001,8 @@
         var count = document.createElement('span');
         count.className = 'overview__count';
         count.textContent = room.items.length === 1 ? '1 painting' : room.items.length + ' paintings';
-        head.append(h, count);
+        if (room.name) head.append(h);
+        head.append(count);
         var grid = document.createElement('ul');
         grid.className = 'overview__grid';
         room.items.forEach(function (i) {
