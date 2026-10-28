@@ -1023,6 +1023,11 @@ html.is-locked {
   font-size: 14px;
   line-height: 1.75;
 }
+/* a hidden copy of the words, only for measuring */
+.closeup__measure {
+  visibility: hidden !important;
+  pointer-events: none;
+}
 .closeup.is-stacked .closeup__nav {
   margin-top: auto;
   padding-top: 8px;
@@ -1090,6 +1095,14 @@ html.is-locked {
 }
 .overview.is-open {
   opacity: 1;
+}
+/* leaving for a painting: the others step back while it gets ready, then the list fades
+   away a little slower, onto the painting */
+.overview.is-leaving {
+  transition-duration: 0.6s;
+}
+.overview.is-leaving .thumb:not(.is-chosen) {
+  opacity: 0.35;
 }
 .overview::backdrop {
   background: transparent;
@@ -1161,6 +1174,7 @@ html.is-locked {
   list-style: none;
 }
 .thumb {
+  transition: opacity 0.3s ease;
   display: grid;
   justify-items: start;
   gap: 12px;
