@@ -138,7 +138,7 @@
       t.textContent = p.title;
       var m = document.createElement('span');
       m.className = 'label__meta';
-      m.append(p.date, document.createElement('br'), p.medium + ', ' + p.size);
+      m.textContent = p.date; // medium and size are shown in the close-up
       cap.append(t, m);
 
       fig.append(pool, frame, look, cap);
@@ -1043,10 +1043,7 @@
           var tt = document.createElement('span');
           tt.className = 'thumb__title';
           tt.textContent = p.title;
-          var td = document.createElement('span');
-          td.className = 'thumb__date';
-          td.textContent = p.date;
-          tx.append(tt, td);
+          tx.append(tt);
           b.append(fr, tx);
           b.addEventListener('click', function () {
             closeOverview(function () { goToPainting(i, { jump: true }); });
