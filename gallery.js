@@ -42,7 +42,7 @@
     });
 
     var walk = $('walk'), stage = $('stage'), wall = $('wall'), track = $('track'),
-      veil = $('veil'), intro = $('intro'), outro = $('outro'), hint = $('hint'), finder = $('finder'),
+      veil = $('veil'), intro = $('intro'), outro = $('outro'), finder = $('finder'),
       finderRoom = $('finder-room'), finderLine = $('finder-line'), finderMarker = $('finder-marker'),
       allbtn = $('allbtn'), overview = $('overview'), closeup = $('closeup'), cuText = $('cu-text'),
       cuTitle = $('cu-title'), cuMeta = $('cu-meta'), cuNote = $('cu-note'), cuAlt = $('cu-alt'),
@@ -569,8 +569,6 @@
     function firstMove() {
       if (moved) return;
       moved = true;
-      hint.classList.remove('is-shown');
-      hint.classList.add('is-gone');
     }
 
     /* Walk to a spot on the wall. Far away: a soft fade instead of a long glide. */
@@ -605,18 +603,23 @@
     function fadeJump(x) {
       veil.classList.add('is-down');
       setTimeout(function () {
-        var side = x >= c ? -1 : 1;
-        c = reduced ? x : clamp(x + side * L.slot * 0.35, 0, L.total);
-        v = 0;
-        glide = null;
-        target = x;
-        setY(x * L.ratio);
-        shownStop = nearestStopIndex(x);
-        snapWall = true;
-        render();
+        arrive(x);
         veil.classList.remove('is-down');
-        kick();
       }, reduced ? 230 : 400);
+    }
+
+    /* Stand at a spot straight away, coming in from a little way off so the last steps show. */
+    function arrive(x) {
+      var side = x >= c ? -1 : 1;
+      c = reduced ? x : clamp(x + side * L.slot * 0.35, 0, L.total);
+      v = 0;
+      glide = null;
+      target = x;
+      setY(x * L.ratio);
+      shownStop = nearestStopIndex(x);
+      snapWall = true;
+      render();
+      kick();
     }
 
     /* Reduced motion: hold still at the nearest painting, fade between them. */
@@ -1046,7 +1049,12 @@
           tx.append(tt);
           b.append(fr, tx);
           b.addEventListener('click', function () {
-            closeOverview(function () { goToPainting(i, { jump: true }); });
+            // arrive at the painting while the list still covers the wall, then the list fades
+            // away and you're there (no extra fade to black)
+            arrive(L.xs[i]);
+            ovReturnY = sy;
+            say('“' + P[i].title + '”, ' + P[i].date);
+            closeOverview();
           });
           li.append(b);
           grid.append(li);
@@ -1294,7 +1302,6 @@
         if (root.classList.contains('lit')) return;
         root.classList.add('lit');
         setTimeout(function () { root.classList.add('is-ready'); }, reduced ? 2600 : 5200);
-        setTimeout(function () { if (!moved) hint.classList.add('is-shown'); }, reduced ? 2200 : 4600);
       };
       var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
       Promise.race([fontsReady, new Promise(function (r) { setTimeout(r, 900); })]).then(function () {

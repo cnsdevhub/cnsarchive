@@ -128,7 +128,6 @@ button {
    ------------------------------------------------------------------ */
 
 html:not(.js) .walk,
-html:not(.js) .hint,
 html:not(.js) .finder,
 html:not(.js) .allbtn,
 html:not(.js) .overview,
@@ -706,30 +705,8 @@ html.is-locked {
 }
 
 /* ------------------------------------------------------------------
-   Hint, finder line, all paintings
+   Finder line, all paintings
    ------------------------------------------------------------------ */
-
-.hint {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--bottom) + 92px);
-  z-index: 20;
-  margin: 0;
-  transform: translateX(-50%);
-  font: 400 14px/1 var(--text);
-  color: var(--muted);
-  letter-spacing: 0.04em;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 1.4s ease;
-}
-.hint.is-shown {
-  opacity: 0.9;
-}
-.hint.is-gone {
-  opacity: 0;
-  transition-duration: 0.9s;
-}
 
 .finder {
   position: fixed;
@@ -847,18 +824,17 @@ html.is-locked {
   opacity: 0.8;
 }
 
+/* the bottom bar comes up with the light, together with the title */
 .lit .finder,
 .lit .allbtn {
   opacity: 1;
-  transition-delay: 3.4s;
 }
-.lit.is-ready .finder,
-.lit.is-ready .allbtn {
-  transition-delay: 0s;
+.lit:not(.is-ready) .finder,
+.lit:not(.is-ready) .allbtn {
+  transition: opacity 2.5s cubic-bezier(0.5, 0, 0.25, 1);
 }
 .is-close .finder,
-.is-close .allbtn,
-.is-close .hint {
+.is-close .allbtn {
   opacity: 0 !important;
   pointer-events: none;
   transition-delay: 0s;
@@ -877,9 +853,6 @@ html.is-locked {
   }
   .allbtn {
     bottom: calc(var(--bottom) + 32px);
-  }
-  .hint {
-    bottom: calc(var(--bottom) + 86px);
   }
 }
 
@@ -1266,7 +1239,7 @@ html.is-locked {
   }
   .lit:not(.is-ready) .finder,
   .lit:not(.is-ready) .allbtn {
-    transition-delay: 1.4s;
+    transition-duration: 1.2s;
   }
   .veil {
     transition-duration: 0.22s;
