@@ -215,14 +215,12 @@ html:not(.js) .walltext--outro {
   display: none;
 }
 
-/* Without JavaScript, the drawing and the signature close the plain list */
+/* Without JavaScript, the drawing closes the plain list */
 html:not(.js) .signoff {
   width: min(300px, 70vw);
   aspect-ratio: 1;
   margin: 12vh auto 0;
-  opacity: 0.6;
-  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 95%);
-  mask-image: linear-gradient(to bottom, #000 60%, transparent 95%);
+  opacity: 0.7;
 }
 
 /* ------------------------------------------------------------------
@@ -595,40 +593,15 @@ html.is-locked {
   font: 400 clamp(13px, 0.95vw, 15px)/1.7 var(--text);
   color: var(--muted);
 }
-/* Cansu's signature (signature.svg, the same cream as the wall text) */
-.walltext__signature {
-  display: block;
-  width: 100%;
-  height: auto;
-  opacity: 0.68;
+/* The closing footer: empty for now. An email put in it (see index.html) hangs centered
+   under the drawing, like a painting's label. */
+.walltext--outro {
+  text-align: center;
 }
-/* the same spot as on the wall: the "C" along her left shoulder */
-html:not(.js) .walltext__signature {
-  width: 55.2%;
-  margin: -25.4% 0 0 12.8%;
-  transform: rotate(2deg);
-  transform-origin: 0 0;
-}
-/* the email, centered under the drawing like a painting's label
-   (change it in index.html, in two places) */
 .walltext__contact {
   font: 400 11.5px/1.65 var(--text);
   letter-spacing: 0.02em;
   white-space: nowrap;
-}
-.js .track > .walltext--outro .walltext__signature {
-  transform: rotate(var(--tilt, 0deg));
-  transform-origin: 0 0;
-}
-.js .track > .walltext--outro .walltext__contact {
-  position: absolute;
-  left: var(--cx, 50%);
-  top: var(--cy, calc(100% + 24px));
-  transform: translateX(-50%);
-}
-html:not(.js) .walltext__contact {
-  margin-top: 20px;
-  text-align: center;
 }
 .walltext__contact a {
   color: var(--muted);
@@ -657,18 +630,16 @@ html:not(.js) .walltext__contact {
   content: none;
 }
 
-/* The very end: the painter, drawn on the wall in pale chalk-like lines
-   (woman-bun-brush.svg, its lines colored like the wall text) */
+/* The very end: Cansu's drawing of herself, signed, in pale chalk-like lines
+   (cansu-drawing.svg, its lines colored like the wall text) */
 .js .track > .signoff {
   position: absolute;
   left: var(--x);
   top: var(--y);
   width: var(--s);
   height: var(--s);
-  opacity: calc(var(--near, 1) * 0.62);
+  opacity: calc(var(--near, 1) * 0.7);
   transition: opacity 0.6s ease;
-  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 95%);
-  mask-image: linear-gradient(to bottom, #000 60%, transparent 95%);
   pointer-events: none;
 }
 .signoff img {

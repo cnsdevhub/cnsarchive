@@ -73,9 +73,6 @@
     outro.classList.add('on-wall');
     track.append(intro, outro);
     var signoff = $('signoff'), lastSignoff = -1;
-    // where the signature sits on the drawing, in the drawing's 712 × 712 units:
-    // its top-left corner, its width, and a slight tilt so the "C" follows her shoulder
-    var SIG = { left: 91, top: 531, width: 393, tilt: 2 };
     if (signoff) track.append(signoff);
     // tabbing to the email walks to the end of the wall
     var contact = outro.querySelector('a');
@@ -246,23 +243,16 @@
       // wall text
       var introW = mobile ? vw * 0.8 : Math.min(vw * 0.56, 980);
       placeText(intro, mobile ? -vw / 2 + 26 : -vw * 0.38, eye - vh * 0.02, introW);
+      var drawTop = eye - drawSize * (mobile ? 0.42 : 0.44); // her head at the height of the paintings
       if (signoff) {
-        // her head at the height of the paintings; her shoulders fade out below
-        var drawTop = eye - drawSize * (mobile ? 0.42 : 0.44);
         signoff.style.setProperty('--x', Math.round(drawX - drawSize / 2) + 'px');
         signoff.style.setProperty('--y', Math.round(drawTop) + 'px');
         signoff.style.setProperty('--s', Math.round(drawSize) + 'px');
-        // the signature grows out of the drawing: the curve of the "C" lies along her left
-        // shoulder (SIG is measured in the drawing's own 712 × 712 units)
-        var u = drawSize / 712;
-        var sigX = drawX - drawSize / 2 + SIG.left * u, sigY = drawTop + SIG.top * u;
-        placeText(outro, sigX, sigY, SIG.width * u);
-        outro.style.setProperty('--tilt', SIG.tilt + 'deg');
-        // the email hangs centered under the whole drawing, like the labels under the paintings
-        outro.style.setProperty('--cx', Math.round(drawX - sigX) + 'px');
-        outro.style.setProperty('--cy', Math.round(drawTop + drawSize - sigY + clamp(vh * 0.02, 14, 22)) + 'px');
         lastSignoff = -1;
-      } else placeText(outro, endX - drawSize * 0.25, eye - drawSize * 0.12, drawSize * 0.5);
+      }
+      // anything in the closing footer (an email, later) hangs centered under the drawing,
+      // like the labels under the paintings
+      placeText(outro, drawX - drawSize / 2, signoff ? drawTop + drawSize + clamp(vh * 0.02, 14, 22) : eye, drawSize);
 
       roomSigns.forEach(function (sign, k) {
         sign.style.setProperty('--x', Math.round(roomStarts[k].sign) + 'px');
