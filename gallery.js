@@ -226,7 +226,8 @@
 
       L = { vw: vw, vh: vh, mobile: mobile, slot: slot, floorY: floorY, eye: eye, geo: geo, xs: xs, roomStarts: roomStarts, endX: endX, total: total, drawX: drawX, stops: stops, ratio: ratio };
       L.stacked = vw < 1100 && vh > vw * 1.05; // close-up text goes below the painting
-      L.safeTop = measureSafeTop();
+      L.safeTop = measureSafe('top');
+      L.safeBottom = measureSafe('bottom');
       closeup.classList.toggle('is-stacked', L.stacked);
 
       floorEl.style.left = Math.round(-vw * 3) + 'px';
@@ -608,10 +609,11 @@
       }, reduced ? 230 : 400);
     }
 
-    /* Stand at a spot straight away, coming in from a little way off so the last steps show. */
-    function arrive(x) {
+    /* Stand at a spot straight away, coming in from a little way off so the last steps show
+       (or exactly there, when the move is hidden anyway). */
+    function arrive(x, exact) {
       var side = x >= c ? -1 : 1;
-      c = reduced ? x : clamp(x + side * L.slot * 0.35, 0, L.total);
+      c = reduced || exact ? x : clamp(x + side * L.slot * 0.35, 0, L.total);
       v = 0;
       glide = null;
       target = x;
@@ -737,20 +739,46 @@
         sx = vw * 0.34;
         sy = vh * 0.46;
       } else {
-        S = clamp(Math.min((vw - 32) / g.W, (vh * 0.42) / g.H), 1, 3.4);
+        // phones: the painting with its words below it, the two centered together in the room
+        // between the x at the top and the arrows at the bottom (with a long note, from the top)
+        var top = Math.max(52, vh * 0.09) + L.safeTop;
+        var room = vh - (100 + L.safeBottom) - top;
+        var words = 26 + textHeight(i);
+        S = clamp(Math.min((vw - 32) / g.W, Math.max(vh * 0.42, room - words) / g.H), 1, 3.4);
         sx = vw / 2;
-        sy = Math.max(52, vh * 0.09) + L.safeTop + (S * g.H) / 2;
+        sy = top + Math.max(0, (room - S * g.H - words) / 2) + (S * g.H) / 2;
       }
       return { S: S, tx: sx - S * g.x, ty: sy - S * g.cy, sx: sx, sy: sy, w: S * g.W, h: S * g.H };
     }
 
-    function measureSafeTop() {
+    function measureSafe(side) {
       var probe = document.createElement('div');
-      probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+      probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-' + side + ',0px);visibility:hidden;pointer-events:none';
       document.body.append(probe);
       var h = probe.offsetHeight;
       probe.remove();
       return h;
+    }
+
+    /* How tall a painting's words (title, date and size, note) will be on a phone, measured on a
+       hidden copy before they're shown. */
+    var measurer = null;
+    function textHeight(i) {
+      if (!measurer) {
+        measurer = document.createElement('div');
+        measurer.className = 'closeup__text closeup__measure';
+        measurer.setAttribute('aria-hidden', 'true');
+        measurer.innerHTML = '<h2 class="closeup__title"></h2><p class="closeup__meta"></p><p class="closeup__note"></p>';
+        closeup.append(measurer);
+      }
+      var p = P[i], k = measurer.children;
+      k[0].textContent = p.title;
+      k[1].textContent = '';
+      k[1].append(p.date, document.createElement('br'), p.medium + ', ' + p.size);
+      k[2].textContent = p.note || '';
+      k[2].hidden = !p.note;
+      var last = p.note ? k[2] : k[1];
+      return Math.ceil(last.getBoundingClientRect().bottom - k[0].getBoundingClientRect().top);
     }
 
     /* The words sit beside the painting (below it on a phone), as wall text. */
@@ -818,6 +846,7 @@
       cu.open = true;
       cu.i = i;
       cu.returnY = sy;
+      closeup.hidden = false;
       cu.cam = closeCam(i);
       cu.nav = null;
       loadAround(i);
@@ -826,7 +855,6 @@
       setActive(i);
       lockPage(true);
       root.classList.add('is-close');
-      closeup.hidden = false;
       fillText(i);
       placePanel();
       // the words arrive as the camera settles
@@ -1048,14 +1076,7 @@
           tt.textContent = p.title;
           tx.append(tt);
           b.append(fr, tx);
-          b.addEventListener('click', function () {
-            // arrive at the painting while the list still covers the wall, then the list fades
-            // away and you're there (no extra fade to black)
-            arrive(L.xs[i]);
-            ovReturnY = sy;
-            say('“' + P[i].title + '”, ' + P[i].date);
-            closeOverview();
-          });
+          b.addEventListener('click', function () { leaveOverviewTo(i, b); });
           li.append(b);
           grid.append(li);
           thumbs[i] = { btn: b, li: li, sec: sec };
@@ -1119,7 +1140,40 @@
         root.classList.remove('is-locked');
         setY(ovReturnY);
         if (then) then();
-      }, reduced ? 120 : 380);
+      }, reduced ? 120 : overview.classList.contains('is-leaving') ? 650 : 380);
+    }
+
+    /* From all paintings to one painting: first make sure the painting is loaded and sharp, then
+       stand right in front of it while the list still covers the wall, and let the list fade away
+       onto it. Nothing moves or pops in while you watch. */
+    var leaving = false;
+    function leaveOverviewTo(i, btn) {
+      if (leaving) return;
+      leaving = true;
+      overview.classList.add('is-leaving');
+      btn.classList.add('is-chosen');
+      var pc = pieces[i], img = pc.img;
+      loadMid(i);
+      var loaded = img.complete && img.naturalWidth ? Promise.resolve() : new Promise(function (res) {
+        img.addEventListener('load', res, { once: true });
+        img.addEventListener('error', res, { once: true });
+      });
+      var ready = loaded.then(function () { return img.decode ? img.decode().catch(function () {}) : null; });
+      Promise.race([ready, new Promise(function (res) { setTimeout(res, 1500); })]).then(function () {
+        if (img.naturalWidth) {
+          img.style.transition = 'none'; // the picture is there at once, not fading in
+          pc.fig.classList.add('is-loaded');
+        }
+        arrive(L.xs[i], true);
+        ovReturnY = sy;
+        say('“' + P[i].title + '”, ' + P[i].date);
+        closeOverview(function () {
+          img.style.transition = '';
+          overview.classList.remove('is-leaving');
+          btn.classList.remove('is-chosen');
+          leaving = false;
+        });
+      });
     }
 
     allbtn.addEventListener('click', openOverview);
